@@ -176,20 +176,21 @@ ifthenelseA = VFonctionA f
                                                                                        False -> (VLitteralA l2)))
 
 --  Q20
+-- j'ai renommé en ajoutant un ' pour qu'il n'y ait qu'un seul main à la fin
 affichePrompt :: IO ()
 affichePrompt = putStr "minilang> "
 
-traiteLigne :: IO ()
-traiteLigne = do affichePrompt
-                 b <- isEOF
-                 if b
-                 then return ()
-                 else do  exp <- getLine
-                          print (interpreteA envA (ras exp))
-                          traiteLigne        
+traiteLigne' :: IO ()
+traiteLigne' = do   affichePrompt
+                    b <- isEOF
+                    if b
+                    then return ()
+                    else do exp <- getLine
+                            print (interpreteA envA (ras exp))
+                            traiteLigne'        
 
-main :: IO ()
-main = traiteLigne
+main' :: IO ()
+main' = traiteLigne'
 
 --  Q21
 data ValeurB = VLitteralB Litteral
@@ -311,7 +312,9 @@ interpreteS = interpreteM
 
 --  Q32
 data TraceM v = T (Trace, v)
-              deriving Show
+
+instance (Show v) => Show (TraceM v) where
+    show (T (t,v)) = "Trace : " ++ t ++ "\nResultat : " ++show v
 
 instance Monad TraceM where
     return v    = T ("",v)
@@ -337,7 +340,10 @@ interpreteMT' env (App e1 e2) = do  VFonctionM f <- interpreteMT' env e1
 --  Q34
 data ErreurM v = Succes v
                | Erreur String
-               deriving Show
+                
+instance Show v => Show (ErreurM v) where
+    show (Succes v) = show v
+    show (Erreur e) = show e
 
 instance Monad ErreurM where
     fail e = Erreur e
@@ -374,6 +380,44 @@ instance (Monad m, Injectable m t) => Injectable m (Bool -> t) where
     injecte f = VFonctionM g
             where g (VLitteralM (Bool b)) = return (injecte (f b))
 
---instance (Monad m, Injectable m t) => Injectable m (Integer -> t) where
-  --  injecte f = VFonctionM f
+instance (Monad m, Injectable m t) => Injectable m (Integer -> t) where
+    injecte f = VFonctionM g
+            where g (VLitteralM (Entier n)) = return (injecte (f n))
+                    
+
+--  Q38
+envM :: Monad m => Environnement (ValeurM m)
+envM = [ ("add",   injecte ((+) :: Integer -> Integer -> Integer))
+       , ("soust", injecte ((-) :: Integer -> Integer -> Integer))
+       , ("mult",  injecte ((*) :: Integer -> Integer -> Integer))
+       , ("quot",  injecte (quot :: Integer -> Integer -> Integer))
+       , ("et",    injecte (&&))
+       , ("ou",    injecte (||))
+       , ("non",   injecte not) ]
+
+envE :: Environnement (ValeurM ErreurM)
+envE = envM
+       
+traiteLigneE :: IO ()
+traiteLigneE = do affichePrompt
+                  b <- isEOF
+                  if b
+                  then return ()
+                  else do  exp <- getLine
+                           print (interpreteE envE (ras exp))
+                           traiteLigneE        
+envT :: Environnement (ValeurM TraceM)
+envT = envM
+
+traiteLigneT :: IO ()
+traiteLigneT = do affichePrompt
+                  b <- isEOF
+                  if b
+                  then return ()
+                  else do  exp <- getLine
+                           print (interpreteMT' envT (ras exp))
+                           traiteLigneT
+
+main :: IO ()
+main = traiteLigneE
 
